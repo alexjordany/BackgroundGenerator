@@ -258,12 +258,8 @@ struct ContentView: View {
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
         panel.nameFieldStringValue = defaultFileName()
-        panel.directoryURL = FileManager.default.urls(for: .picturesDirectory, in: .userDomainMask).first
-        if #available(macOS 11.0, *) {
-            panel.allowedContentTypes = [format.utType]
-        } else {
-            panel.allowedFileTypes = [format.fileExtension]
-        }
+        panel.directoryURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
+        panel.allowedContentTypes = [format.utType]
         if panel.runModal() == .OK, var url = panel.url {
             if url.pathExtension.isEmpty {
                 url.appendPathExtension(format.fileExtension)

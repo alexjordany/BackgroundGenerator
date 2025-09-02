@@ -4,8 +4,6 @@
 //
 //  Created by Alex Parrales on 1/9/25.
 //
-
-
 import SwiftUI
 
 enum GradientDirection {
@@ -48,6 +46,23 @@ enum GradientDirection {
             let start = UnitPoint(x: cx - big * dx, y: cy - big * dy)
             let end   = UnitPoint(x: cx + big * dx, y: cy + big * dy)
             return (start, end)
+        }
+    }
+}
+
+// MARK: - Equatable conformance
+extension GradientDirection: Equatable {
+    static func == (lhs: GradientDirection, rhs: GradientDirection) -> Bool {
+        switch (lhs, rhs) {
+        case let (.preset(lp), .preset(rp)):
+            return lp == rp
+        case let (.angle(la), .angle(ra)):
+            return la == ra
+        case let (.points(ls, le), .points(rs, re)):
+            // UnitPoint doesn't conform to Equatable; compare by coordinates
+            return ls.x == rs.x && ls.y == rs.y && le.x == re.x && le.y == re.y
+        default:
+            return false
         }
     }
 }

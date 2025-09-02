@@ -9,6 +9,7 @@ import SwiftUI
 import AppKit
 
 struct ContentView: View {
+    // MARK: - State
     @State private var baseColor: Color = Color(hue: 0.58, saturation: 0.75, brightness: 0.9)
     @State private var width: Int = 1170
     @State private var height: Int = 2532
@@ -17,15 +18,18 @@ struct ContentView: View {
     @State private var showAlert: Bool = false
     @State private var alertMessage: String = ""
 
-    // Nuevo estado para el gradiente
     @State private var bgMode: BackgroundMode = .perceptual
     @State private var gradientColors: [Color] = [
         Color(hue: 0.58, saturation: 0.75, brightness: 0.9),
         Color(hue: 0.65, saturation: 0.70, brightness: 0.85),
         Color(hue: 0.75, saturation: 0.65, brightness: 0.80)
     ]
-    @State private var gradientAngle: Double = 120 // grados
     @State private var addMaterial: Bool = true
+
+    // dirección combinada: preset + ángulo (el último cambio gana)
+    @State private var gradientDirection: GradientDirection = .preset(.topLeading)
+    @State private var selectedPreset: GradientDirection.Preset = .topLeading
+    @State private var gradientAngle: Double = 120
 
     let presets: [(String, Int, Int)] = [
         ("iPhone 15 Pro (1290×2796)", 1290, 2796),
@@ -35,157 +39,25 @@ struct ContentView: View {
         ("4K UHD (3840×2160)", 3840, 2160),
         ("8K UHD (7680×4320)", 7680, 4320),
     ]
-    
-    @State private var gradientDirection: GradientDirection = .preset(.topLeading)
-    @State private var selectedPreset: GradientDirection.Preset = .topLeading
 
+    // MARK: - Body
     var body: some View {
-        VStack(spacing: 16) {
-            // Preview
-            AppearancePreview(colorScheme: colorScheme) {
-                ZStack {
-                    previewBackground
-                        .frame(maxWidth: .infinity, maxHeight: 240)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(.white.opacity(0.08)))
-
-                    Text("\(width) × \(height) px")
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .padding(8)
-                        .background(.thinMaterial, in: Capsule())
-                }
-                .frame(height: 240)
-            }
-
-            // Controles
-            HStack(spacing: 16) {
-                VStack(alignment: .leading) {
-                    Text("Background").font(.headline)
-                    Picker("Background", selection: $bgMode) {
-                        Text("Perceptual").tag(BackgroundMode.perceptual)
-                        Text("Linear Gradient").tag(BackgroundMode.linearGradient)
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: 260)
-                    .labelsHidden()
-                }
-
-                if bgMode == .perceptual {
-                    VStack(alignment: .leading) {
-                        Text("Base Color").font(.headline)
-                        ColorPicker("Base Color", selection: $baseColor, supportsOpacity: false)
-                            .labelsHidden()
-                            .frame(width: 160)
-                    }
-                } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Gradient Stops").font(.headline)
-                        HStack {
-                            ForEach(gradientColors.indices, id: \.self) { i in
-                                ColorPicker("", selection: Binding(
-                                    get: { gradientColors[i] },
-                                    set: { gradientColors[i] = $0 }
-                                ), supportsOpacity: false)
-                                .labelsHidden()
-                                .frame(width: 40)
-                            }
-                            Button {
-                                gradientColors.append(.white)
-                            } label: {
-                                Image(systemName: "plus.circle")
-                            }
-                            .help("Agregar stop")
-                            Button(role: .destructive) {
-                                if gradientColors.count > 2 { _ = gradientColors.popLast() }
-                            } label: {
-                                Image(systemName: "minus.circle")
-                            }
-                            .help("Quitar último stop")
-                        }
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Direction").font(.headline)
-                            Picker("Direction", selection: Binding(
-                                get: {
-                                    if case .preset(let p) = gradientDirection { return p }
-                                    return .topLeading
-                                },
-                                set: { gradientDirection = .preset($0) }
-                            )) {
-                                ForEach(GradientDirection.Preset.allCases) { preset in
-                                    Text(preset.rawValue.capitalized).tag(preset)
-                                }
-                            }
-                            .frame(width: 220)
-                            .pickerStyle(.menu)
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Overlay").font(.headline)
-                            Toggle("Add Material overlay", isOn: $addMaterial)
-                                .toggleStyle(.switch)
-                                .frame(width: 220)
+        NavigationSplitView {
+            sidebar
+                .navigationTitle("Background Generator")
+        } detail: {
+            detail
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            export()
+                        } label: {
+                            Label("Export", systemImage: "square.and.arrow.down")
                         }
                     }
                 }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Dimensions (px)").font(.headline)
-                    HStack {
-                        TextField("Width", value: $width, format: .number).frame(width: 80)
-                        Stepper("Width", value: $width, in: 64...16000, step: 1).labelsHidden()
-                        TextField("Height", value: $height, format: .number).frame(width: 80)
-                        Stepper("Height", value: $height, in: 64...16000, step: 1).labelsHidden()
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Format").font(.headline)
-                    Picker("Format", selection: $format) {
-                        ForEach(OutputFormat.allCases) { f in
-                            Text(f.rawValue).tag(f)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
-                    .frame(width: 220)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Mode").font(.headline)
-                    Picker("Mode", selection: $colorScheme) {
-                        Text("Light").tag(ColorScheme.light)
-                        Text("Dark").tag(ColorScheme.dark)
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
-                    .frame(width: 160)
-                }
-            }
-
-            HStack {
-                Menu("Presets") {
-                    ForEach(presets, id: \.0) { item in
-                        Button(item.0) {
-                            width = item.1
-                            height = item.2
-                        }
-                    }
-                }
-
-                Spacer()
-
-                Button {
-                    export()
-                } label: {
-                    Label("Export", systemImage: "square.and.arrow.down")
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                }
-                .buttonStyle(.borderedProminent)
-            }
         }
-        .padding(20)
-        .frame(minWidth: 960)
+        .frame(minWidth: 980, minHeight: 620)
         .alert("Error", isPresented: $showAlert) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -193,6 +65,182 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Sidebar (todos los controles aquí)
+    private var sidebar: some View {
+        List {
+            Section("Background") {
+                Picker("Mode", selection: $bgMode.animation(.easeInOut)) {
+                    Text("Perceptual").tag(BackgroundMode.perceptual)
+                    Text("Linear Gradient").tag(BackgroundMode.linearGradient)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+
+                if bgMode == .perceptual {
+                    ColorPicker("Base Color", selection: $baseColor.animation(), supportsOpacity: false)
+                }
+            }
+
+            if bgMode == .linearGradient {
+                Section(content: {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 8) {
+                            ForEach(gradientColors.indices, id: \.self) { i in
+                                ColorPicker("", selection: Binding(
+                                    get: { gradientColors[i] },
+                                    set: { gradientColors[i] = $0 }
+                                ), supportsOpacity: false)
+                                .labelsHidden()
+                                .frame(width: 40, height: 28)
+                            }
+                        }
+                    }.animation(.easeInOut, value: gradientColors)
+
+                    Picker(
+                        "Direction",
+                        selection: Binding(
+                            get: {
+                                if case .preset(let p) = gradientDirection { return p }
+                                return .topLeading
+                            },
+                            set: { gradientDirection = .preset($0) }
+                        ).animation()
+                    ) {
+                        ForEach(GradientDirection.Preset.allCases) { preset in
+                            Text(preset.rawValue.capitalized).tag(preset)
+                        }
+                    }
+                }, header: {
+                    HStack{
+                        Text("Gradient")
+                        Spacer()
+                        GlassEffectContainer(spacing: 22, content: {
+                            HStack(content: {
+                                Button(role: .confirm){
+                                    withAnimation{
+                                        gradientColors.append(.white)
+                                    }
+                                } label: {
+                                    Image(systemName: "plus.circle")
+                                        .symbolRenderingMode(.hierarchical)
+                                        .foregroundStyle(.blue.gradient)
+                                }
+
+                                Button(role: .destructive) {
+                                    withAnimation{
+                                        if gradientColors.count > 2 { _ = gradientColors.popLast() }
+                                    }
+                                } label: {
+                                    Image(systemName: "minus.circle")
+                                        .symbolRenderingMode(.hierarchical)
+                                        .foregroundStyle(.red.gradient)
+                                }
+                            }).buttonStyle(.glass)
+                            
+                        })
+                        
+                    }
+                    
+                })
+            }
+
+            Section("Overlay") {
+                Toggle("Add Material overlay", isOn: $addMaterial.animation())
+            }
+
+            Section("Canvas") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        VStack {
+                            HStack {
+                                Text("Width")
+                                TextField("Width", value: $width.animation(), format: .number)
+                                    .frame(width: 90)
+                                Stepper("Width", value: $width.animation(), in: 64...16000).labelsHidden()
+                            }
+                            HStack {
+                                Text("Height")
+                                TextField("Height", value: $height.animation(), format: .number)
+                                    .frame(width: 90)
+                                Stepper("Height", value: $height.animation(), in: 64...16000).labelsHidden()
+                            }
+                        }
+
+                        Spacer()
+
+                        // Botón para intercambiar
+                        Button {
+                            withAnimation{
+                                swap(&width, &height)
+                            }
+                        } label: {
+                            Image(systemName: "arrow.up.arrow.down")
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(.blue.gradient)
+                        }
+                        .buttonStyle(.borderless) // para que no ocupe todo el HStack
+                        .help("Intercambiar Width y Height")
+                    }
+
+                    Menu("Presets") {
+                        ForEach(presets, id: \.0) { item in
+                            Button(item.0) {
+                                width = item.1
+                                height = item.2
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            Section("Appearance") {
+                Picker("Mode", selection: $colorScheme) {
+                    Text("Light").tag(ColorScheme.light)
+                    Text("Dark").tag(ColorScheme.dark)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+
+            Section("Output") {
+                Picker("Format", selection: $format) {
+                    ForEach(OutputFormat.allCases) { f in
+                        Text(f.rawValue).tag(f)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                Button {
+                    export()
+                } label: {
+                    Label("Export", systemImage: "square.and.arrow.down")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .listStyle(.sidebar)
+    }
+
+    // MARK: - Detail (solo preview limpio)
+    private var detail: some View {
+        ZStack {
+            ScaledPreview(targetWidth: width, targetHeight: height) {
+                previewBackground
+            }
+            .padding(20)
+
+            Text("\(width) × \(height) px")
+                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .padding(8)
+                .background(.thinMaterial, in: Capsule())
+                .padding()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        }
+    }
+
+
+    // MARK: - Preview builder
     @ViewBuilder
     private var previewBackground: some View {
         switch bgMode {
@@ -212,8 +260,7 @@ struct ContentView: View {
         }
     }
 
-
-
+    // MARK: - Export
     @MainActor
     private func export() {
         if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
@@ -234,7 +281,8 @@ struct ContentView: View {
                 width: width,
                 height: height,
                 color: baseColor,
-                colorScheme: colorScheme, addMaterial: addMaterial
+                colorScheme: colorScheme,
+                addMaterial: addMaterial
             )
         case .linearGradient:
             cg = Exporter.renderLinearGradientCGImage(
@@ -245,7 +293,6 @@ struct ContentView: View {
                 colorScheme: colorScheme,
                 addMaterial: addMaterial
             )
-
         }
 
         guard let cg else {

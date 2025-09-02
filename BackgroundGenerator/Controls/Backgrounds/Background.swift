@@ -16,7 +16,7 @@ import AppKit
 struct Background: View {
     let color: Color
     @Environment(\.colorScheme) private var scheme
-
+    
     var body: some View {
         LinearGradient(
             colors: [
@@ -27,7 +27,7 @@ struct Background: View {
             endPoint: .bottom
         )
     }
-
+    
     private func blended(_ base: Color) -> Color {
         let target: Color = (scheme == .dark) ? .black : .white
         return base.mix(with: target, by: 0.55, in: .perceptual)
@@ -39,7 +39,7 @@ enum OutputFormat: String, CaseIterable, Identifiable {
     case png = "PNG"
     case heic = "HEIC"
     case jpeg = "JPEG"
-
+    
     var id: String { rawValue }
     var utType: UTType {
         switch self {
@@ -63,30 +63,28 @@ struct Exporter {
         width: Int,
         height: Int,
         color: Color,
-        colorScheme: ColorScheme
+        colorScheme: ColorScheme,
+        addMaterial: Bool   // <- nuevo parámetro
     ) -> CGImage? {
-
-        // Construyes la vista con material
+        
         let content = Background(color: color)
             .environment(\.colorScheme, colorScheme)
             .frame(width: CGFloat(width), height: CGFloat(height))
-            .overlay(.thinMaterial) // tu material
+            .overlay(addMaterial ? AnyView(Rectangle().fill(.thinMaterial)) : AnyView(EmptyView()))
             .ignoresSafeArea()
-
-        // Host de AppKit para controlar la apariencia
+        
         let hosting = NSHostingView(rootView: AnyView(content))
         hosting.frame = NSRect(x: 0, y: 0, width: width, height: height)
         hosting.appearance = (colorScheme == .dark)
-            ? NSAppearance(named: .darkAqua)
-            : NSAppearance(named: .aqua)
-
-        // Snapshot estable
+        ? NSAppearance(named: .darkAqua)
+        : NSAppearance(named: .aqua)
+        
         guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { return nil }
         rep.size = NSSize(width: width, height: height)
         hosting.cacheDisplay(in: hosting.bounds, to: rep)
         return rep.cgImage
     }
-
+    
     static func save(_ cgImage: CGImage, to url: URL, as format: OutputFormat, quality: Double = 0.95) throws {
         let supported = CGImageDestinationCopyTypeIdentifiers() as! [CFString]
         guard supported.contains(format.utType.identifier as CFString) else {

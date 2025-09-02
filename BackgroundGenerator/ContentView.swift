@@ -241,7 +241,7 @@ struct ContentView: View {
                 width: width,
                 height: height,
                 colors: gradientColors,
-                direction: gradientDirection, // <- usa lo que resulte del último cambio
+                direction: gradientDirection,
                 colorScheme: colorScheme,
                 addMaterial: addMaterial
             )
